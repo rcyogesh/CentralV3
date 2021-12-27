@@ -1,3 +1,4 @@
+using CentralV3;
 using CentralV3.Controllers;
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args);
@@ -5,6 +6,7 @@ WebApplicationBuilder? builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<SwitchModel>();
 builder.WebHost.UseUrls("http://*:5001");
 var app = builder.Build();
 // Configure the HTTP request pipeline.
@@ -25,21 +27,5 @@ app.MapControllerRoute(
 
 app.MapFallbackToFile("index.html");
 
-ThreadPool.QueueUserWorkItem(x =>
-{
-    while (true)
-    {
-        DateTime dateTime = DateTime.Now;
-        //SwitchController.state = "Turning ON at {"
-        int msTimeout = 10 * 60 * 1000;
-        SwitchController.NextStateChangeAt=DateTime.Now+TimeSpan.FromMilliseconds(msTimeout);
-        Thread.Sleep(msTimeout);
-        SwitchController._SwitchOn();
-        msTimeout = 30 * 1000;
-        SwitchController.NextStateChangeAt=DateTime.Now+TimeSpan.FromMilliseconds(msTimeout);
-        Thread.Sleep(msTimeout); //ON for 30 seconds
-        SwitchController._SwitchOff();
-    }
-});
-
+app.Services.GetService<SwitchModel>()?.StartCycle();
 app.Run();

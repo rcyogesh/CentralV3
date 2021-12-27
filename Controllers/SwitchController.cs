@@ -9,86 +9,43 @@ namespace CentralV3.Controllers
     [ApiController]
     public class SwitchController : ControllerBase
     {
-        static Dictionary<string, int> locations = new Dictionary<string, int>();
-
         private readonly ILogger<SwitchController> _logger;
-        private readonly IHttpClientFactory clientFactory;
+        private readonly SwitchModel switchModel;
 
-        public static DateTime NextStateChangeAt { get; set; }
-
-        public SwitchController(ILogger<SwitchController> logger, IHttpClientFactory clientFactory)
+        public SwitchController(ILogger<SwitchController> logger, SwitchModel switchModel)
         {
             _logger = logger;
-            this.clientFactory = clientFactory;
+            this.switchModel = switchModel;
         }
 
         [HttpGet("{location}")]
         public ActionResult<int> Get(string location)
         {
-            int result;
-            locations.TryGetValue(location, out result);
-            return result;
+            return switchModel.Get(location);
         }
 
         [HttpGet("{location}/{value}")]
         public ActionResult<int> Get(string location, int value)
         {
-            locations[location] = value;
-            return Get(location);
-        }
-
-        [HttpGet("statechange")]
-        public DateTime GetNextStateChangeTime()
-        {
-            return NextStateChangeAt;
+            return switchModel.Get(location, value);
         }
 
         [HttpGet("state")]
         public SwitchState GetState()
         {
-            bool state = GetValue();
-            return new SwitchState { CurrentState = state, NextChangeAt = NextStateChangeAt };
-        }
-
-        [HttpGet("value")]
-        public bool GetValue()
-        {
-            var request = new HttpRequestMessage(HttpMethod.Get, "http://192.168.1.228/value");
-            var client = clientFactory.CreateClient();
-            var response = client.Send(request);
-            //return response.Content. == "1";
-            //var response = WebRequest.Create("http://192.168.1.228/value").GetResponse();
-            string s;
-            using (var stream = response.Content.ReadAsStream())
-            {
-                StreamReader reader = new StreamReader(stream);
-                s = reader.ReadToEnd();
-            }
-            return s == "1";
+            return new SwitchState { CurrentState = switchModel.GetValue(), NextChangeAt = switchModel.NextStateChangeAt };
         }
 
         [HttpGet("on")]
-        public ActionResult<bool> SwitchOn()
+        public void SwitchOn()
         {
-            SwitchController._SwitchOn();
-            return false;
-        }
-
-        public static void _SwitchOn()
-        {
-            WebRequest.Create("http://192.168.1.228/on").GetResponse();
+            switchModel.SwitchOn();
         }
 
         [HttpGet("off")]
         public void SwitchOff()
         {
-            SwitchController._SwitchOff();
+            switchModel.SwitchOff();
         }
-
-        public static void _SwitchOff()
-        {
-            WebRequest.Create("http://192.168.1.228/off").GetResponse();
-        }
-
     }
 }
