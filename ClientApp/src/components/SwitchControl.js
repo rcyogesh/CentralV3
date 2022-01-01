@@ -6,32 +6,26 @@ export class SwitchControl extends Component {
     constructor(props) {
         super(props);
         this.state = { switchState: false, nextStateChange: new Date() };
-
-        //this.UpdateState = this.UpdateState.bind(this);
         this.UpdateStateChangeDisplay = this.UpdateStateChangeDisplay.bind(this);
-        //this.UpdateState();
+        this.handleResponse = this.handleResponse.bind(this);
+        this.OnInputChange = this.OnInputChange.bind(this);
+        this.StartCycle = this.StartCycle.bind(this);
     }
 
     componentDidMount() {
-        //this.UpdateState();
         this.UpdateStateChangeDisplay();
     }
 
-    //UpdateState() {
-    //    fetch('switch/value')
-    //        .then(response => response.json())
-    //        .then(data => {
-    //            this.setState({ switchState: data });
-    //        });
-    //            setTimeout(this.UpdateState, 1000);
-    //}
-
     UpdateStateChangeDisplay() {
         fetch('switch/state')
-            .then(response => response.json())
-            .then(data => {
-                this.setState({ nextStateChange: data.nextChangeAt, switchState: data.currentState });
-            });
+            .then(this.handleResponse);
+    }
+
+    handleResponse(response) {
+        if (response.ok) {
+            response.json().then(data => this.setState({ nextStateChange: data.nextChangeAt, switchState: data.currentState }));
+        }
+
         setTimeout(this.UpdateStateChangeDisplay, 1000);
     }
 
@@ -41,6 +35,21 @@ export class SwitchControl extends Component {
 
     SwitchOn() {
         fetch('switch/on').then(r => r.json());
+    }
+
+    StartCycle() {
+        fetch('switch/start', {
+            method: 'post',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ "patternBlob": this.state.patternString })
+        }).then(r => r.json());
+    }
+
+    OnInputChange(element) {
+        this.setState({ patternString: element.currentTarget.value});
     }
 
     render() {
@@ -63,6 +72,10 @@ export class SwitchControl extends Component {
                 <button className="btn btn-primary" onClick={this.SwitchOn}>On</button>
                 <p></p>
                 <button className="btn btn-primary" onClick={this.SwitchOff}>Off</button>
+                <p>
+                    <input className="txt txt-primary" id="txtPattern" value={this.state.patternString} onChange={(element) => this.OnInputChange(element)} />
+                    <button className="btn btn-primary" onClick={this.StartCycle}>Start</button>
+                </p>
             </div>
         );
     }

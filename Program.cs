@@ -27,5 +27,6 @@ app.MapControllerRoute(
 
 app.MapFallbackToFile("index.html");
 
-app.Services.GetService<SwitchModel>()?.StartCycle();
+var logger = app.Services.GetService<ILogger>();
+logger?.LogInformation("Starting server");
 app.Run();

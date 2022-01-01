@@ -31,21 +31,29 @@ namespace CentralV3.Controllers
         }
 
         [HttpGet("state")]
-        public SwitchState GetState()
+        public async Task<SwitchState> GetState()
         {
-            return new SwitchState { CurrentState = switchModel.GetValue(), NextChangeAt = switchModel.NextStateChangeAt };
+            bool val = await Task.Run(() => switchModel.GetValue());
+            return new SwitchState { CurrentState = val, NextChangeAt = switchModel.NextStateChangeAt };
         }
 
         [HttpGet("on")]
         public void SwitchOn()
         {
-            switchModel.SwitchOn();
+            switchModel.Switch(true);
         }
 
         [HttpGet("off")]
         public void SwitchOff()
         {
-            switchModel.SwitchOff();
+            switchModel.Switch(false);
+        }
+
+        [HttpPost("start")]
+        public void StartCycle(PatternArg arg)
+        {
+            int[] pattern = arg.PatternBlob.Trim().Split(',').Select(s=>s.Trim()).Select(int.Parse).ToArray();
+            switchModel.StartCycle(pattern);
         }
     }
 }

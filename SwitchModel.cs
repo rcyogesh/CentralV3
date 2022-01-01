@@ -4,10 +4,13 @@
     {
         static Dictionary<string, int> locations = new Dictionary<string, int>();
         private readonly IHttpClientFactory clientFactory;
+        private readonly ILogger<SwitchModel> logger;
+        private Guid currentOperationGuid;
 
-        public SwitchModel(IHttpClientFactory clientFactory)
+        public SwitchModel(IHttpClientFactory clientFactory, ILogger<SwitchModel> logger)
         {
             this.clientFactory = clientFactory;
+            this.logger = logger;
         }
 
         public DateTime NextStateChangeAt { get; private set; }
@@ -39,9 +42,9 @@
             return s == "1";
         }
 
-        public void SwitchOn()
+        public void Switch(bool on)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "http://192.168.1.228/on");
+            var request = new HttpRequestMessage(HttpMethod.Get, "http://192.168.1.228/" + (on ? "on" : "off"));
             var client = clientFactory.CreateClient();
             var response = client.Send(request);
             using (var stream = response.Content.ReadAsStream())
@@ -51,37 +54,44 @@
             }
         }
 
-        public void SwitchOff()
+        public void StartCycle(int[] offOnPattern)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "http://192.168.1.228/off");
-            var client = clientFactory.CreateClient();
-            var response = client.Send(request);
-            using (var stream = response.Content.ReadAsStream())
+            currentOperationGuid = Guid.NewGuid();
+            Task.Run(() =>
             {
-                StreamReader reader = new StreamReader(stream);
-                reader.ReadToEnd();
-            }
-        }
-
-        public void StartCycle()
-        {
-            ThreadPool.QueueUserWorkItem(x =>
-            {
-                while (true)
+                var operationGuid = currentOperationGuid;
+                while (operationGuid == currentOperationGuid)
                 {
-                    DateTime dateTime = DateTime.Now;
-                    int msTimeout = 10 * 60 * 1000;
-                    NextStateChangeAt = DateTime.Now + TimeSpan.FromMilliseconds(msTimeout);
-                    Thread.Sleep(msTimeout);
+                    int totalSleepTime = 0;
 
-                    Console.WriteLine("Turning ON");
-                    SwitchOn();
-                    msTimeout = 30 * 1000;
-                    NextStateChangeAt = DateTime.Now + TimeSpan.FromMilliseconds(msTimeout);
+                    bool on = true;
+                    for (int i = 0; i < offOnPattern.Length; i++)
+                    {
+                        int msTimeout = offOnPattern[i];
+                        totalSleepTime += msTimeout;
+                        NextStateChangeAt = DateTime.Now + TimeSpan.FromMilliseconds(msTimeout);
+                        Thread.Sleep(msTimeout);
+                        if (currentOperationGuid != operationGuid)
+                        {
+                            break;
+                        }
 
-                    Thread.Sleep(msTimeout); //ON for 30 seconds
-                    Console.WriteLine("Turning OFF");
-                    SwitchOff();
+                        logger?.LogInformation($"Turning {on}");
+                        try
+                        {
+                            Switch(on);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger?.LogError("Error while switching", ex);
+                        }
+                        on = !on;
+                    }
+
+                    if (totalSleepTime < 50)
+                    {
+                        Thread.Sleep(50); //Ensure minimum 50 ms timeout
+                    }
                 }
             });
         }
